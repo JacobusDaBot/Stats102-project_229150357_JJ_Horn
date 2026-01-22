@@ -1,0 +1,228 @@
+---
+title: "Analysis of Solar Power Generation Data"
+subtitle: "Exploratory Data Analysis (EDA) and Statistical Inference Project (STAS102)"
+author: "Surname, Name (std. number)"
+affiliation: "Nelson Mandela University"
+date: "2024"
+date-format: "YYYY"
+title-block-banner: "#141c2b"
+title-block-banner-color: "#ffffff"
+title-block-style: manuscript
+code-line-numbers: true
+code-block-border-left: "#006b34"
+code-annotations: select
+code-block-bg: "#e5f0ea"
+number-sections: true
+fontcolor: "#141c2b"
+code-fold: true
+format: 
+  html: default
+  pdf: default
+css: style.css
+---
+
+```{r setup}
+#| message: false
+#| warning: false
+
+# Load necessary libraries
+library(tidyverse)
+library(skimr)
+library(confintr)
+
+# read in data
+solar_power_data <- read_csv("solar_data.csv")
+
+```
+
+## Data
+
+In this report, we analyze a dataset related to solar power production. The dataset includes the following variables:
+
+-   **`Sol_Panel_Type`**: Categorical variable representing the type of solar panel (Monocrystalline, Polycrystalline, Thin-film, PERC).
+-   **`Batt_Storage`**: Binary categorical variable indicating the presence (1) or absence (0) of battery storage.
+-   **`Days_No_Sun`**: Numeric discrete variable representing the number of days with no sunlight.
+-   **`Avg_Daily_kWh`**: Continuous variable representing the average daily solar power production in kilowatt-hours (kWh).
+-   **`Avg_Monthly_kWh`**: Continuous variable representing the average monthly solar power production in kilowatt-hours (kWh).
+
+The purpose of this analysis is to understand the factors that influence solar power production and to provide insights that could help optimize solar energy systems.
+
+Here is a preview of the first six entries of the dataset:
+
+```{r}
+#| label: datapreview
+
+# Display the first six entries
+knitr::kable(head(solar_power_data))
+
+```
+
+## Exploratory Data Analysis
+
+Exploratory Data Analysis (EDA) helps us understand the underlying patterns, trends, and relationships within the data. It involves summarizing the main characteristics of the data, often using visual methods.
+
+### Summary Statistics
+
+Summary statistics provide a quick overview of the data. They include measures of central tendency (mean, median) and dispersion (standard deviation, range).
+
+```{r summarystats}
+
+# using the skimr package, stating what I'd like to see on the table.
+my_skim <- skim_with(
+  numeric = sfl(mean = mean, 
+                sd = sd, 
+                min = min, 
+                p25 = ~ quantile(., .25),
+                med = median,
+                p75 = ~ quantile(., .75),
+                max = max),
+  append = FALSE
+)
+
+# Summary statistics
+my_skim(solar_power_data)
+```
+
+The dataset includes four types of solar panels: Monocrystalline, Polycrystalline, Thin-film, and PERC. Monocrystalline panels are generally known for their high efficiency, whereas Thin-film panels are less efficient but more flexible and cheaper to produce. The balanced distribution of these panel types in the dataset will allow us to analyse their performance under various conditions. This diversity is crucial for determining which panel types perform best and under what circumstances, providing valuable insights for future investments and technology deployments.
+
+The binary variable `Batt_Storage` indicates whether battery storage is present. Battery storage is critical for ensuring a stable power supply, particularly in regions with inconsistent sunlight. The dataset shows a fairly even split between systems with and without battery storage. Analyzing this variable will help us understand if battery storage significantly impacts daily production levels and overall system performance.
+
+`Days_No_Sun`, a numeric discrete variable, represents the number of days with no sunlight, ranging from `r round(min(solar_power_data$Days_No_Sun), 2)` to `r round(max(solar_power_data$Days_No_Sun), 2)` days in this dataset. This range highlights the variability in sunlight availability, which is a significant factor affecting solar power production. Understanding this variability helps in designing systems that can cope with different weather patterns, ensuring consistent power generation even in less favorable conditions.
+
+`Avg_Daily_kWh` is a continuous variable representing the average daily production of solar power in kilowatt-hours. The mean daily production is approximately `r round(mean(solar_power_data$Avg_Daily_kWh), 2)` kWh, with a standard deviation of `r round(sd(solar_power_data$Avg_Daily_kWh), 2)` kWh, indicating moderate variability. This variability is essential for assessing the efficiency and reliability of solar power systems. High average daily production suggests good system performance, while lower values may indicate issues that need addressing.
+
+`Avg_Monthly_kWh`, another continuous variable, represents the total monthly production of solar power in kilowatt-hours. The mean monthly production is around `r round(min(solar_power_data$Avg_Monthly_kWh), 2)` kWh, with a standard deviation of `r round(sd(solar_power_data$Avg_Monthly_kWh), 2)` kWh. The high variability in monthly production suggests that several factors, including the number of sunlight days, panel efficiency, and maintenance practices, significantly influence total production. This variable is critical for understanding the long-term performance and economic viability of solar power systems.
+
+### Distribution of Variables
+
+Visualizing the distribution of variables helps us understand their spread and central tendency. To begin, @fig-solar gives us an indication of the spread of the solar panel type.
+
+```{r}
+#| label: fig-solar
+#| fig-cap: "Solar panel types distribution"
+#| fig-align: "center"
+
+# Distribution of Solar Panel Types
+ggplot(solar_power_data, aes(x = Sol_Panel_Type)) +
+  geom_bar(fill = 'blue') +
+  labs(title = 'Distribution of Solar Panel Types', x = 'Solar Panel Type', y = 'Count')
+
+```
+
+Understanding the prevalence of each type can help in assessing their impact on production levels. For example, if a certain type of panel is more prevalent, it may indicate a preference based on performance or cost considerations.
+
+### Scatter Plot of Average Daily Production vs. Total Monthly Production
+
+Scatter plots help us understand the relationship between two continuous variables.
+
+```{r}
+#| message: false
+#| label: fig-scatter
+#| fig-cap: "Scatter plot of production variables."
+
+# Scatter plot of Average Daily Production vs. Total Monthly Production
+ggplot(solar_power_data, aes(x = Avg_Daily_kWh, y = Avg_Monthly_kWh)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(title = 'Average Daily Production vs. Average Monthly Production', x = 'Average Daily Production (kWh)', y = 'Average Monthly Production (kWh)')
+
+```
+
+The scatter plot shows a weak linear relationship between average daily production and total monthly production. The red line represents a linear regression model, indicating the general trend. While higher daily production tends to lead to higher monthly production, there is significant scatter, suggesting that other factors also play a crucial role. This insight helps in understanding the predictability of monthly production based on daily averages.
+
+### Boxplot of Total Monthly Production by Solar Panel Type and Battery Storage
+
+Boxplots provide a visual summary of the distribution of a dataset. They display the median, quartiles, and potential outliers.
+
+```{r}
+#| label: fig-boxplot
+#| fig-cap: "Boxplots of average"
+#| fig-align: "center"
+
+# Boxplot of Total Monthly Production by Solar Panel Type and Battery Storage
+ggplot(solar_power_data, aes(x = Sol_Panel_Type, y = Avg_Monthly_kWh, fill = as.factor(Batt_Storage))) +
+  geom_boxplot() +
+  labs(title = 'Average Monthly Production by Solar Panel Type and Battery Storage', x = 'Solar Panel Type', y = 'Average Monthly Production (kWh)', fill = 'Battery Storage')
+
+```
+
+The boxplot illustrates the distribution of average monthly production across different solar panel types, with a distinction between systems with and without battery storage.
+
+-   **Monocrystalline Panels**: Monocrystalline panels exhibit a relatively lower median production compared to other panel types, especially without battery storage. However, when battery storage is included, the median production improves, demonstrating a positive impact. The interquartile range (IQR) for Monocrystalline panels is small, indicating less variability, but the presence of an outlier suggests that some systems may perform significantly below average. Compared to Polycrystalline and PERC panels, Monocrystalline panels show less variability but generally lower production levels without battery storage.
+
+-   **PERC Panels**: PERC panels show the highest median production when battery storage is included, outperforming all other panel types. The IQR is wide, indicating considerable variability, which suggests that PERC panels can perform exceptionally well under optimal conditions but also have a broader range of performance outcomes. Without battery storage, the median production of PERC panels drops but remains competitive with Monocrystalline panels with battery storage. This highlights the significant positive impact of battery storage on PERC panels, making them a top choice for maximizing production.
+
+-   **Polycrystalline Panels**: Polycrystalline panels have a moderate median production that is slightly improved by the inclusion of battery storage. The IQR indicates consistent variability, similar to Monocrystalline panels but with slightly higher production values. When compared to PERC panels, Polycrystalline panels have less variability and slightly lower production values. However, they outperform Thin-film panels in terms of both median production and variability, making them a reliable middle-ground option.
+
+-   **Thin-film Panels**: Thin-film panels exhibit the lowest median production among all panel types, both with and without battery storage. The IQR is the widest, indicating high variability and suggesting that Thin-film panels are more sensitive to environmental factors and less efficient overall. Despite the inclusion of battery storage, Thin-film panels' production remains significantly lower than that of Monocrystalline, Polycrystalline, and PERC panels. Their high variability and lower performance make them the least favorable option for consistent solar power production.
+
+Battery storage generally enhances the median production of all solar panel types, with the most significant improvement observed in PERC panels. Monocrystalline panels, while consistent, show lower production without battery storage compared to PERC and Polycrystalline panels. Thin-film panels, despite their flexibility and cost-effectiveness, exhibit the lowest and most variable production, making them less reliable. The analysis underscores the importance of battery storage in optimizing solar power production, particularly for PERC panels, which show the highest potential for increased efficiency.
+
+## Statistical Inference
+
+Statistical inference allows us to draw conclusions about a population based on a sample. In this section, we will construct a confidence interval and perform a hypothesis test.
+
+### Confidence Interval for Average Daily Production
+
+```{r}
+
+# use the t distribution. even though n >30. Reason being is that in 
+# practice we will never know the population standard deviation
+# so rather use t, notwithstanding n > 30.
+ci <- ci_mean(solar_power_data$Avg_Daily_kWh) 
+
+# Preview
+ci
+```
+
+The 95% confidence interval for the average daily production of solar power is approximately \[`r round(ci$interval[1], 2)`, `r round(ci$interval[2], 2)`\] kWh. This interval means that we are 95% confident that the true average daily production lies within this range. This information is valuable for setting realistic expectations for daily production and planning for energy needs.
+
+### Hypothesis Test on the Impact of Battery Storage on Average Daily Production
+
+Null Hypothesis (H0): There is no significant difference in average daily production between systems with and without battery storage.
+
+Alternative Hypothesis (H1): There is a significant difference in average daily production between systems with and without battery storage.
+
+```{r}
+
+# Hypothesis test for the impact of Battery Storage on Average Daily Production
+t_test <- t.test(Avg_Daily_kWh ~ Batt_Storage, data = solar_power_data)
+t_test
+
+```
+
+The p-value from the t-test is greater than 0.05, indicating that we fail to reject the null hypothesis. Therefore, there is no significant difference in average daily production between systems with and without battery storage. This result suggests that battery storage may not directly impact daily production levels but could still play a crucial role in energy stability and reliability.
+
+## Insights
+
+Based on the exploratory data analysis and statistical inference, here are the key insights:
+
+1.  **Distribution of Solar Panel Types**: The dataset includes an approximately even distribution of the four types of solar panels. This diversity allows for a comprehensive analysis of their performance. Understanding which type of panel performs best under certain conditions can guide future investments and installations.
+
+2.  **Battery storage boosts PERC efficiency**: PERC panels with battery storage achieve the highest median production, underscoring the efficiency benefits of battery storage. Monocrystalline panels, while having a lower median production, exhibit consistent performance with low variability, making them a dependable option.
+
+3.  **Battery Storage**: The hypothesis test suggests that there is no significant difference in average daily production between systems with and without battery storage. This insight could guide decisions on investing in battery storage. It may be more beneficial to focus on other factors such as panel type and location.
+
+4.  **Days with No Sunlight**: The number of days with no sunlight varies widely, with some locations experiencing up to 10 days. This variability is crucial for understanding the challenges in different regions. Areas with fewer days of sunlight need to be assessed for alternative energy sources or storage solutions to ensure consistent power supply.
+
+5.  **Linear Relationship**: There is a weak linear relationship between average daily production and total monthly production. This relationship helps in predicting monthly production based on daily averages, but it also indicates that other factors play a significant role in total production.
+
+## Conclusion
+
+This report provided an analysis of a solar power production dataset. Through exploratory data analysis, we identified the distributions and relationships between variables. Statistical inference methods were used to draw conclusions about the data. Key insights highlighted the overall trends and relationships within the dataset. This analysis can help inform decisions related to solar power production and the factors that influence it.
+
+The findings suggest that while the type of solar panel and the number of days with no sunlight are important factors, battery storage does not significantly impact average daily production. This information is valuable for optimizing solar power systems and making informed investment decisions.
+
+## Recommendations
+
+Based on the insights gained from this analysis, the following recommendations can be made:
+
+1.  **Focus on Solar Panel Types**: Invest in research and development to identify the most efficient solar panel types for different environmental conditions. Prioritize the deployment of high-performing panels to maximize production.
+
+2.  **Address Variability in Sunlight**: For locations with high variability in sunlight, consider hybrid systems that combine solar with other renewable energy sources or enhanced storage solutions to ensure a consistent power supply.
+
+3.  **Optimize Daily Production**: Since there is a weak linear relationship between daily and monthly production, efforts should be made to optimize daily production through better maintenance, tracking, and real-time adjustments based on weather conditions.
+
+4.  **Evaluate Battery Storage Investments**: Given that battery storage does not significantly impact daily production, it may be more cost-effective to invest in other areas such as improving panel efficiency or increasing the capacity of existing systems.
+
+These recommendations aim to enhance the efficiency and reliability of solar power systems, ensuring sustainable and cost-effective energy production.

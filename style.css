@@ -1,0 +1,14 @@
+
+.quarto-title-block .quarto-title-banner {
+  background-image: url(circ_tri_logo2.png);
+  background-size: 150px;
+  background-position: right top;
+  background-repeat: no-repeat;
+  padding-right: 10px;
+  background-origin: content-box;
+}
+a:link {
+  color: rgb(38, 71, 137);
+  background-color: transparent;
+  text-decoration: none;
+}

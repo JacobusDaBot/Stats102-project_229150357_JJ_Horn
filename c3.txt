@@ -1,0 +1,7 @@
+{
+    "name1": "number_of_late_payments",
+    "name2": "credit_utilization_ratio",
+    "pearson_coefficient": 0.32234356257134733,
+    "pearson_p_value": 5.854980429006792e-07,
+    "regression_line": "y=0.36661236154571053+0.013167985145787717*x"
+}

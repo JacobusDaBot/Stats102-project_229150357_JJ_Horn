@@ -1,0 +1,667 @@
+---
+title: "Statistical analysis of credit data" 
+subtitle: "Exploratory Data Analysis (EDA) and Statistical Inference" 
+author: "Horn, Jacobus (229150357)" 
+affiliation: "Nelson Mandela University" 
+date: "2025" 
+date-format: "YYYY" 
+title-block-banner: "#141c2b" 
+title-block-banner-color: "#ffffff" 
+title-block-style: manuscript 
+code-line-numbers: true 
+code-block-border-left: "#006b34" 
+code-annotations: select 
+code-block-bg: "#e5f0ea" 
+code-fold: true
+number-sections: true 
+fontcolor: "#141c2b" 
+format:    
+  html: 
+    self-contained: true
+css: style.css 
+---
+<body style="background-color:gray;color:black">
+
+```{r , setup,message=FALSE,warning=FALSE}
+#| label: setup_project
+library(knitr)
+options(width=80)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, cache = TRUE) 
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+
+# packages'
+library(sys)
+library(reticulate)
+library("png")
+library("rjson")
+library(imager)
+library(ggplot2)
+library(EnvStats)
+library(kableExtra)
+library(psych)
+library(patchwork)
+library(skimr)
+library(gt)
+
+
+library(tidyverse)
+library(fitdistrplus)
+library(MASS)
+library(aqp)
+library(nortest)
+
+df<-read.csv("credit_data.csv")
+```
+## Data
+The data set we have been given consists of the following fields:<br/>
+1. occupation: Defines the occupation of the person.<br/>
+2. credit_rating: Is a categorical variable describing how good the persons credit rating is.<br/> 
+3. number_of_late_payments: This is the amount of late payments that the person has made.<br/>
+4. debt_to_income_ratio: This is the ratio of your income and your debt. It shows how much of your income has to be payed as debt. <br/>
+5. credit_utilization_ratio: This is the ratio between your total credit limit and your total outstanding balance on all your credit cards.<br/>
+
+
+```{r prev}
+knitr::kable(head(df))
+
+```
+
+```{python 3.13,echo = T, results = 'hide',message=FALSE,warning=FALSE,results='hide',fig.show="hide"}
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import scipy.stats as sc
+import seaborn as sb
+import statistics as stts
+import pandas as pd
+from fitter import Fitter, get_common_distributions, get_distributions
+import csv
+import statsmodels.api as sm
+import json
+import math
+from distfit import distfit
+
+id=[]
+occupation=[]
+credit_rating=[]
+number_of_late_payments=[]
+debt_to_income_ratio=[]
+credit_utilization_ratio=[]
+alldata=dict
+
+allModels=['Fair','Good','Poor']
+alloccupations= [
+"Engineer",
+"Clerk",
+"Manager",
+"Nurse",
+"Salesperson",
+"Teacher"]
+
+allcolors="red","green","blue","yellow","orange","black"
+with open('credit_data.csv', newline='') as csvfile:
+    reader = csv.DictReader(csvfile)    
+    
+    for row in reader:
+        id.append(float(row['id']))
+        occupation.append(row['occupation'])
+        credit_rating.append(row['credit_rating'])
+        number_of_late_payments.append(float(row['number_of_late_payments']))
+        debt_to_income_ratio.append(float(row['debt_to_income_ratio']))
+        credit_utilization_ratio.append(float(row['credit_utilization_ratio']))
+
+    
+    def generateMeanStandardDev(thisList):
+        
+        tmean=stts.mean(thisList)
+        tstdev=stts.stdev(thisList)
+        tvar=stts.variance(thisList)
+        tharmmean=stts.harmonic_mean(thisList)
+        tskew= sc.skew(thisList,axis=0,bias=True)
+        tkurt=sc.kurtosis(thisList,axis=0,bias=True)
+        tgeomean=0
+        if 0 in thisList:
+            tgeomean=0
+        else:
+            tgeomean=stts.geometric_mean(thisList)
+        #print(tmean,tstdev,tvar)
+        return [tmean,tstdev,tvar,tharmmean,tgeomean,tskew,tkurt,]
+        
+    def eachModelthing(row,query):
+        icount=1
+        allModels=['Fair','Good','Poor']
+        for x in allModels:
+                #print(x)
+                
+                thisoccupation={'id':[],'occupation':[],'credit_rating':[],'number_of_late_payments':[],'debt_to_income_ratio':[],'credit_utilization_ratio':[],'sum_of_each_rating':{}}
+                for thisid in id:            
+                    thisid=int(thisid)-1
+                    if  credit_rating[thisid]==x :
+                        
+                        thisoccupation['id'].append(1)         
+                        thisoccupation['occupation'].append(occupation[thisid])
+                        thisoccupation['credit_rating'].append(credit_rating[thisid])
+                        thisoccupation['sum_of_each_rating']
+                        thisoccupation['number_of_late_payments'].append(float(number_of_late_payments[thisid]))
+                        thisoccupation['debt_to_income_ratio'].append(float(debt_to_income_ratio[thisid]))
+                        thisoccupation['credit_utilization_ratio'].append(float(credit_utilization_ratio[thisid]))
+                        
+                        
+                data = {
+                "credit_utilization_ratio": thisoccupation['credit_utilization_ratio'],
+                "number_of_late_payments": thisoccupation['number_of_late_payments'],
+                "debt_to_income_ratio":thisoccupation['debt_to_income_ratio'],
+                "occupation":thisoccupation['occupation'],
+                "credit_rating":thisoccupation['credit_rating'],
+                "id":thisoccupation['id']
+                    }  
+                df = pd.DataFrame(data)
+                df.head()
+                
+                sb.kdeplot(data=df, x=query, multiple="stack",color=allcolors[row],label=x,ax=axes[icount,row]).legend(loc="upper right")
+                icount+=1
+    def ShowDistribution(collum_name,place):
+        data = {
+        "credit_utilization_ratio": credit_utilization_ratio,
+        "number_of_late_payments": number_of_late_payments,
+        "debt_to_income_ratio":debt_to_income_ratio,
+        "occupation":occupation,
+        "credit_rating":credit_rating,
+        "id":id
+            }  
+        df = pd.DataFrame(data)
+        df.head()
+        thisfield = df[collum_name].values
+        stuff=generateMeanStandardDev(data[collum_name])
+        mean=stuff[0]
+        stdev=stuff[1]
+        vari=stuff[2]
+        harmmean=stuff[3]
+        geomean=stuff[4]
+        linewidth=1
+        gx=sb.kdeplot(data=df, x=collum_name, multiple="stack",ax=place,label=collum_name)
+        gx.legend(loc="upper right")
+        gx.set(xlabel=None)
+        gx.set(ylabel=None)
+        place.axvline(x = mean,  color="red"   , linewidth =linewidth)
+        if harmmean !=0 :            
+            place.axvline(x = harmmean,  color="black"   , linewidth =linewidth)
+        if geomean !=0 :
+            place.axvline(x = geomean,  color="white"   , linewidth =linewidth)
+        place.axvline(x = mean-vari  ,color="green" ,linewidth =linewidth)
+        
+        place.axvline(x =mean+vari, color="green",linewidth =linewidth     )
+        
+        place.axvline(x =mean-stdev, color="yellow" ,  linewidth =linewidth  )
+        place.axvline(x =mean+stdev, color="yellow" ,linewidth =linewidth    )
+        jdataDict={
+            "name":collum_name,
+            "mean":stuff[0],
+            "standarddev":stuff[1],
+            "variance":stuff[2],
+            "harmmean":stuff[3],
+            "geomean":stuff[4],
+            "skewness":stuff[5],
+            "kurtosis":stuff[6]
+        }
+        return jdataDict
+        
+    def boxplots(thing1_name):
+        data = {
+        "credit_utilization_ratio": credit_utilization_ratio,
+        "number_of_late_payments": number_of_late_payments,
+        "debt_to_income_ratio":debt_to_income_ratio,
+        "occupation":occupation,
+        "credit_rating":credit_rating,
+        "id":id
+            }  
+        df = pd.DataFrame(data)
+        df.head()
+        sb.boxplot(df,y=thing1_name,x="credit_rating",hue="occupation").legend( loc='best', borderaxespad=0, )
+    def compare2things(thing1_name,thing2_name,df):
+       
+       
+        regression=(sc.linregress(x=data[thing1_name],y=data[thing2_name]))
+        #print(regression)
+        b=regression[0]
+        a=regression[1]
+        point1=a+b*min(data[thing1_name])
+        point2=a+b*max(data[thing1_name])
+       
+        pearsonC=sc.pearsonr(data[thing1_name],data[thing2_name])
+        
+        txtreturn="name1 "+thing1_name+"\nname2"+thing2_name+"\npearson_coefficient"+str(pearsonC[0])+"\npearson_p_value"+str(pearsonC[1])+          "\nregression_line"+f"y={a}+{b}*x"
+        jdataDict={
+            "name1":thing1_name,
+            "name2":thing2_name,
+            "pearson_coefficient":pearsonC[0],
+            "pearson_p_value":pearsonC[1],
+            "regression_line":f"y={a}+{b}*x"
+        }
+        return jdataDict
+        #return txtreturn
+    
+        
+        
+        
+    #print(len(credit_utilization_ratio))
+    #print(len(number_of_late_payments))
+    #print(len(debt_to_income_ratio))
+
+    #print(len(occupation))
+
+    #print(len(credit_rating))
+
+    #print(len(id))
+    data = {
+        "credit_utilization_ratio": credit_utilization_ratio,
+        "number_of_late_payments": number_of_late_payments,
+        "debt_to_income_ratio":debt_to_income_ratio,
+        "occupation":occupation,
+        "credit_rating":credit_rating,
+        "id":id
+            }  
+    df = pd.DataFrame(data)
+    df.head()  
+    
+    '''
+    incomedist=ShowDistribution("debt_to_income_ratio" )
+    latedist=ShowDistribution("number_of_late_payments" )
+    creditdist=ShowDistribution("credit_utilization_ratio")
+    '''
+    f, axes = plt.subplots(3)
+    f. set_size_inches((8, 6))
+    incomedist=ShowDistribution("debt_to_income_ratio",place=axes[0] )
+    latedist=ShowDistribution("number_of_late_payments",place=axes[1] )
+    creditdist=ShowDistribution("credit_utilization_ratio",place=axes[2] )
+    plt.savefig("Distributions1.png")
+    
+    
+    
+    c1=compare2things("debt_to_income_ratio","number_of_late_payments",df)
+    c2=compare2things("credit_utilization_ratio","debt_to_income_ratio",df)
+    c3=compare2things("number_of_late_payments","credit_utilization_ratio",df)
+  
+    f = open("c1.txt", "w")
+    f.write( json.dumps(c1,indent=4,))
+    f.close()
+    f = open("c2.txt", "w")
+    f.write( json.dumps(c2,indent=4,))
+    f.close()
+    f = open("c3.txt", "w")
+    f.write( json.dumps(c3,indent=4,))
+    f.close()
+    
+    plt.tight_layout()
+    f, axes = plt.subplots(1)    
+    f. set_size_inches((10, 5))
+    boxplots("debt_to_income_ratio")
+    plt.savefig("BoxC.png")
+    plt.tight_layout()
+    f, axes = plt.subplots(1)    
+    f. set_size_inches((10, 5))
+    boxplots("credit_utilization_ratio")
+    plt.savefig("BoxM.png")
+    plt.tight_layout()
+    f, axes = plt.subplots(1)    
+    f. set_size_inches((10, 5))
+    boxplots("number_of_late_payments")
+    plt.savefig("BoxW.png")
+    
+    
+    ########
+    #plt.show()
+    out={
+        "Probability_Distributions":{
+        "incomedist":incomedist,
+        "latedist":latedist,
+        "creditdist":creditdist}
+    }
+    jsout=json.dumps(out,indent=4,)
+    #put json into a text file:
+    txtComparisons=out["Probability_Distributions"]
+    global txtout
+    txtout=""
+    for l in txtComparisons:
+        
+        for x in txtComparisons[l]:
+            #print(x +"    \t"+str(txtComparisons[l][x]))
+            num=len(x)
+            strx=x+"="*(20-num)
+            if type(txtComparisons[l][x])!=str:
+                txtout+=(strx+str(round(float(txtComparisons[l][x]),4)))
+            else: 
+                txtout+=(strx +str(txtComparisons[l][x]))
+            txtout+="\n"
+      
+        txtout+="\n"
+      
+    f = open("numbers.txt", "w")
+    f.write(txtout)
+    f.close()
+
+```
+
+## EDA
+The goal of this EDA is to understand "credit_data.csv"'s underlying structure, find correlations, test hypotheses, fit confidence intervals and fit density distributions.
+```{python numbrs,fig.show="hide"}
+f = open("numbers.txt", "r").read()
+print(f)
+```
+The skewness of the fields indicates if the data will be negatively or positively skewed. If the value is between -1 and -0.5: the data is negatively skewed. If it is between 0.5 to 1: the data is positively skewed.
+The kurtosis of the data indicated the density of the tail ends of the density plot.
+
+The table below shows some of the above data in density tables for the respective fields:
+
+-   mean -\> red
+-   harmonic mean -\> black
+-   geometric mean -\> green
+-   variance about the mean -\> green
+-   standard deviation about the mean -\> yellow
+
+\* note that not all of the fields have a harmonic or geometric mean because of the way that they are calculated if there is a 0 in the data set then the harmonic and geometric mean will not exist.
+
+```{r de1nsty}
+im <- load.image("Distributions1.png")
+par(mar = c(0, 0, 0, 0))
+plot(im, axes=FALSE)
+```
+In the table above you can visually confirm the data given in the EDA:Such as the skewness of late payments and debt ratio. It should be noted that none of the number of late payments actually has a negative value, it is simply a result of the graphing technique that is smoothing the density distribution to be approximate.
+
+This table shows each 1/4th percentile for : 
+<div id="outliers"></div>
+* credit_utilization_ratio 
+* number_of_late_payments 
+* debt_to_income_ratio
+
+```{r percentiles}
+skimmedDFinitial <- df %>%
+  skim() %>%            
+  yank("numeric")  
+skimmedDF <- skim(df) %>%
+  dplyr::select(skim_variable, numeric.p25,numeric.p50, numeric.p75)
+skimmedDF<-skimmedDF[4:6,]
+kable(skimmedDF, digits = 2, align = "c") %>%  
+  kable_styling(
+    full_width = FALSE,  
+    font_size = 11,  
+    latex_options = c("striped", "hold_position") 
+  ) %>%
+  row_spec(0,font_size = 16, color = "white", background = "#2d9103") %>%  
+  row_spec(1:nrow(skimmedDF), color = "black", background = scales::seq_gradient_pal("green", "#2d9103")(seq(0, 1, length.out = nrow(skimmedDF)))) %>% 
+  column_spec(1, bold = TRUE, color = "black", background = "white") %>%  
+  add_header_above(c("Percentile's of each field" = ncol(skimmedDF)))
+```
+
+These percentiles are then used to get the outliers of the data. Outliers are a good way of detecting and accounting for anomalies when conducting further tests on data.
+
+```{R outlie}
+Q1m <- quantile(df$credit_utilization_ratio, .25)
+Q3m <- quantile(df$credit_utilization_ratio, .75)
+IQRm <- IQR(df$credit_utilization_ratio)
+
+Q1w <- quantile(df$number_of_late_payments, .25)
+Q3w <- quantile(df$number_of_late_payments, .75)
+IQRw <- IQR(df$number_of_late_payments)
+
+Q1s <- quantile(df$debt_to_income_ratio, .25)
+Q3s <- quantile(df$debt_to_income_ratio, .75)
+IQRs <- IQR(df$debt_to_income_ratio)
+
+
+outliers <- subset(df, 
+                     df$credit_utilization_ratio<(Q1m - 1.5*IQRm)         | df$credit_utilization_ratio>(Q3m + 1.5*IQRm)        |
+                     df$number_of_late_payments<(Q1w - 1.5*IQRw)   | df$number_of_late_payments>(Q3w + 1.5*IQRw)  |
+                     df$debt_to_income_ratio<(Q1s - 1.5*IQRs) | df$debt_to_income_ratio>(Q3s + 1.5*IQRs)
+                     )
+o1<- subset(df,df$credit_utilization_ratio<(Q1m - 1.5*IQRm)         | df$credit_utilization_ratio>(Q3m + 1.5*IQRm)  )
+o2<- subset(df,df$number_of_late_payments<(Q1w - 1.5*IQRw)   | df$number_of_late_payments>(Q3w + 1.5*IQRw)  )
+o3<- subset(df,df$debt_to_income_ratio<(Q1s - 1.5*IQRs) | df$debt_to_income_ratio>(Q3s + 1.5*IQRs))
+outliers<-outliers[,]
+kable(outliers, digits = 0.02, align = "c") %>%  
+  kable_styling(
+    full_width = FALSE,  
+    font_size = 11,  
+    latex_options = c("striped", "hold_position") 
+  )  %>%
+  row_spec(0,font_size = 16, color = "white", background = "#2d9103")%>% 
+  column_spec(1, bold = TRUE, color = "black", background = "white")  %>%  
+  add_header_above(c("Table of outliers" = ncol(outliers)+1))
+
+ my_df <- data.frame(
+      d = "Outliers",
+      credit_utilization_ratio =  nrow(o1),
+      number_of_late_payments = nrow(o2),
+      debt_to_income_ratio = nrow(o3)
+    )
+colnames(my_df)[1] <-""
+  
+    # Create a kable table
+kable(my_df, align = "c")%>% 
+  kable_styling(
+    full_width = FALSE,  
+    font_size = 11,  
+    latex_options = c("striped", "hold_position") 
+  )  %>% 
+    row_spec(0,font_size = 16, color = "white", background = "#2d9103")  %>%
+    column_spec(1, bold = TRUE, color = "black", background = "white")%>%
+    add_header_above(c("Number of outliers per independant variable" = ncol(my_df)))
+```
+
+Since there are only 2 outliers in the credit utilization ratio and number of late payments columns, they probably will not impact any of the upcoming analysis. 
+There is however a high amount of outliers in the debt to income ratio column. This can be due to the high skewness and kurtosis of debt_to_income_ratio. It is still important to include outliers in data analysis unless there are clear reasons to exclude them. But if any inconsistencies appear in the results, it may be worthwhile to check if the outliers are causing these issues.
+It should also be noted from the table of outliers that only "Poor" and "Fair" credit ratings are in the outliers.
+
+## Compring Data
+
+### Checking regression lines
+<div id="RegressionLines"></div>
+
+This section compares certain fields with each other to see if they have any significant statistical correlation. the fields being compared are:
+
+-   (number_of_late_payments,credit_utilization_ratio)
+-   (credit_utilization_ratio,debt_to_income_ratio)
+-   (debt_to_income_ratio,number_of_late_payments)
+
+The Pearson correlation coefficient:
+
+-   A value close to 1 indicates a strong positive linear relationship.
+-   A value close to -1 indicates a strong negative linear relationship.
+-   A value close to 0 suggests there is little to no linear relationship between the variables.
+
+P-value:
+
+-   A p-value below a common limit such as 0.05 would indicate that the observed correlation is statistically significant. 
+-   A p-value higher than 0.05 suggests that there is no statistical significant correlation between the variables.
+
+#### number_of_late_payments VS debt_to_income_ratio
+
+```{r r1}
+
+ggplot(df,aes(x=debt_to_income_ratio,y=number_of_late_payments))+
+  geom_jitter()+geom_smooth(method="lm",se=FALSE)+
+  xlab("debt_to_income_ratio")+ylab("number_of_late_payments")
+```
+
+```{python c1,fig.show="hide"}
+f = open("c1.txt", "r").read()
+print(f)
+```
+
+#### credit_utilization_ratio VS debt_to_income_ratio
+```{r r2}
+ggplot(df,aes(x=credit_utilization_ratio,y=debt_to_income_ratio))+
+  geom_jitter()+geom_smooth(method="lm",se=FALSE)+
+  xlab("credit_utilization_ratio")+ylab("debt_to_income_ratio")
+```
+
+```{python c2,fig.show="hide"}
+f = open("c2.txt", "r").read()
+print(f)
+```
+
+#### number_of_late_payments VS credit_utilization_ratio
+
+```{r r3}
+ggplot(df,aes(x=credit_utilization_ratio,y=number_of_late_payments))+
+  geom_jitter()+geom_smooth(method="lm",se=FALSE)+
+  xlab("credit_utilization_ratio")+ylab("number_of_late_payments")
+```
+
+```{python c3,fig.show="hide"}
+f = open("c3.txt", "r").read()
+print(f)
+```
+
+#### Interpretation of regression lines
+
+Here we can see that there are no strong linear correlations between the data sets. This is because all the pearson p-values are higher than 0.05 which suggests that there is no statistical significant correlation between the above data sets.
+
+### Comparing fields by region
+<div id="Boxplots"></div>
+
+Below are the visual comparisons of each type of credit rating using box plots
+
+#### debt to income ratio
+
+```{r box}
+im <- load.image("BoxC.png")
+par(mar = c(0, 0, 0, 0))
+plot(im, axes=FALSE)
+```
+
+From this box plot it is clear that credit rating influences the debt to income ratio. Poor credit rating having the highest debt to income ratio, good have the lowest debt to income ratio and fair lie between them. Comparing the other two numeric independent variables with credit rating follows a similar trend:
+
+#### Number of late payments and credit utilization ratio
+
+```{r box2}
+par(mfrow = c(2, 1))
+
+im <- load.image("BoxM.png")
+par(mar = c(0, 0, 0, 0))
+plot(im, axes=FALSE)
+
+im <- load.image("BoxW.png")
+par(mar = c(0, 0, 0, 0))
+plot(im, axes=FALSE)
+
+```
+
+From the box plots of warranty claims and credit utilization ratio one can see that the credit rating does not impact the warranty claims or credit utilization ratio as much as it effects debt to income ratio. <br/>
+The strange observation of poor credit rating can be attributed to high variance within the poor credit rating subset of the data.
+
+## Statistical Inference
+
+This section is for statistical inference.
+
+### Estimation
+
+#### Goodness-of-fit Test
+<div id="Goodness"></div>
+Using a Shapiro-wilk test to do a goodness of fit test on the credit_utilization_ratio
+The test will check Normal, Gamma and Lognormal distributions. 
+```{r choosedst}
+chosenDist<-EnvStats::distChoose(y=df$credit_utilization_ratio)
+chosenDist
+```
+From this test we can see that it is most likely that the credit utilization ratio has a normal distribution as that has the highest test statistic and p value.
+
+This graph shows the density distribution of credit utilization ratio and the expected density based off of the mean, standard deviation and variance of the sample data. 
+
+```{r fitdist}
+ggplot(df, aes(x = credit_utilization_ratio)) +
+  geom_density(aes(colour = "Actual credit utilization ratio"), fill = "pink", alpha = 0.65) +
+  
+  geom_density(aes(x = rnorm(n = length(credit_utilization_ratio), 
+                             mean = mean(credit_utilization_ratio), 
+                             sd = sd(credit_utilization_ratio)), 
+                   colour = "Simulated Normal Distribution"), fill = "blue", alpha = 0.0) +
+  
+  scale_colour_manual(values = c("Actual credit utilization ratio" = "red", 
+                                 "Simulated Normal Distribution" = "blue")) +
+  
+  guides(colour = guide_legend(title = "Legend Title"))
+```
+This provides a visual confirmation that credit utilization ratio has a normal distribution.
+
+### Interval Estimation
+
+Density Plot for credit utilization ratio, with Shaded Critical Regions of alpha value 0.05.
+This graph of the credit utilization ratio shows the rejection regions using the critical values. 
+```{r confid}
+alpha <- 0.05
+critical_value_left <- qnorm(alpha / 2, mean = mean(df$credit_utilization_ratio), sd = sd(df$credit_utilization_ratio))
+critical_value_right <- qnorm(1 - alpha / 2, mean = mean(df$credit_utilization_ratio), sd = sd(df$credit_utilization_ratio))
+cat(
+paste(" lower bound :", critical_value_left, sep=" "),"\n",
+paste("upper bound :", critical_value_right, sep=" ")
+)
+
+ggplot(df, aes(x = credit_utilization_ratio)) +
+  geom_density(fill = "lightblue", alpha = 0.65) +
+  geom_vline(xintercept = c(critical_value_left, critical_value_right), 
+             linetype = "dashed", color = "black") +
+  annotate("rect", xmin = -Inf, xmax = critical_value_left, ymin = 0, ymax = Inf, 
+           alpha = 0.2, fill = "black") +
+  annotate("rect", xmin = critical_value_right, xmax = Inf, ymin = 0, ymax = Inf, 
+           alpha = 0.2, fill = "black") +
+  labs(title = "Density Plot for credit utilization ratio, with Shaded Critical Regions of alpha value 0.05 ", x = "Test Statistic",y="Density")
+
+
+```
+
+### Hypothesis testing
+
+```{r hypetest}
+a <- EnvStats::varTest(x=df$credit_utilization_ratio,conf.level = 0.05)
+a$method
+a
+```
+With this we can see that the p-value is much less that the test statistic. therefore we reject the null hypothesis, meaning that we have strong statistical evidence to say that the actual variance of credit_utilization_ratio is not equal to 1.
+
+## Insights and Conclusion
+
+</br>
+<u><a href="#outliers">Jump to outliers</a></u>
+</br>
+Since there were not any inconsistencies in analysis of the data while the outliers where included it is safe to assume that they don't significantly impact the analysis. However it may be beneficial to redo some of the tests without the outliers if we want to do a more indepth analysis in the future. 
+</br>
+<u><a href="#RegressionLines">Jump to regression Lines</a></u>
+</br>
+It was found from the pearson p-values of the that there are no significant correlations between the credit_utilization_ratio, credit_utilization_ratio and customer_satisfaction_score. this means that these fields do not affect each other in any way when categorised as a whole set. However they are linked to credit rating as we will see in the box plot analysis.
+</br>
+
+<u><a href="#Boxplots">Jump to Box plots</a></u>
+</br>
+Comparing the different credit ratings:</br>
+When visually comparing the credit_utilization_ratio, credit_utilization_ratio and customer_satisfaction_score based on credit rating one can see that.
+<ul>
+<li>"Poor" has the highest debt to income ratio, "Good" has the lowest debt to income ratio and "Fair" lie between them.</li>
+<li>This same trend can be observed with slightly less extremity when looking at credit utilisation ratio and number of late payments. </li>
+<li>The strange artefacts in "Poor" section of the box plots is attributed to a small sample size and the values in "Poor" category being grouped closely and spread widely. An example of this is "Poor" Engeneers having a wide spread in number of late payments and credit utilisation rate, but being grouped close together in debt to income ratio. </li>
+</ul>
+</br>
+<u>Interesting observation</u></br>
+
+The lack of correlation means that our independent variables have a weak colinearity. The distinct change of spread of each independent variable when categorised in the box plots is important to note here as it means that this dataset can be used for multivariable regression or even machine learning to predict someones credit rating given their occupation, number_of_late_payments, debt_to_income_ratio, credit_utilization_ratio. 
+To confirm this suspicion an anova test can be conducted:
+```{r interesting}
+
+anova_late_payments <- aov(number_of_late_payments ~ credit_rating, data = df)
+summary(anova_late_payments)
+
+anova_dti <- aov(debt_to_income_ratio ~ credit_rating, data = df)
+summary(anova_dti)
+
+anova_utilization <- aov(credit_utilization_ratio ~ credit_rating, data = df)
+summary(anova_utilization)
+```
+
+From this we see that all the Pr(>F) values are less than 0.0001. this means that there are significant differences between credit rating subgroups. This confirms the above assumption that the data can be used in multivariable regression and machine learning to predict credit ratings.
+</br>
+
+### Recommendations
+
+Based on the box plots and the anova test: if someone has a bad credit rating and would like to improve it, they should: lower their credit utilisation ratio(spend less of your total available credit), and they should make less late payments. They must also most importantly reduce their debt to income ratio.
+
+</body>

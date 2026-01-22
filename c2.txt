@@ -1,0 +1,7 @@
+{
+    "name1": "credit_utilization_ratio",
+    "name2": "debt_to_income_ratio",
+    "pearson_coefficient": 0.22665626214920925,
+    "pearson_p_value": 0.0005324569590632021,
+    "regression_line": "y=0.23559770056582663+0.2438438474669343*x"
+}

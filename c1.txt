@@ -1,0 +1,7 @@
+{
+    "name1": "debt_to_income_ratio",
+    "name2": "number_of_late_payments",
+    "pearson_coefficient": 0.21345484679247573,
+    "pearson_p_value": 0.0011252254123582809,
+    "regression_line": "y=1.6358238247930679+4.856927427392359*x"
+}
